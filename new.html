@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <script src="server.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e8e4e4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .main {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 450px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        input,
+        textarea,
+        select,
+        button {
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .edit,
+        .delete {
+            cursor: pointer;
+            color: #007bff;
+        }
+
+        .delete {
+            color: #dc3545;
+        }
+
+        .edit:hover {
+            text-decoration: underline;
+        }
+
+        .delete:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="main">
+        <h1>Task Management System</h1>
+        <form id="task-form">
+            <input type="text" id="title" placeholder="Task Title" required>
+            <textarea id="description" placeholder="Task Description"></textarea>
+            <select id="status">
+                <option value="">--Choose--</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+            </select>
+            <button type="submit">Add Task</button>
+        </form>
+        <ul id="task-list"></ul>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const taskForm = document.getElementById('task-form');
+            const taskList = document.getElementById('task-list');
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+            const getCurrentDate = () => {
+                const today = new Date();
+                const day = String(today.getDate()).padStart(2, '0');
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const year = today.getFullYear();
+                return `${day}/${month}/${year}`;
+            };
+
+            const renderTasks = () => {
+                taskList.innerHTML = '';
+                tasks.forEach((task, index) => {
+                    const taskItem = document.createElement('li');
+                    taskItem.innerHTML = `
+                        <div>
+                            <h3>${task.title}</h3>
+                            <p>${task.description}</p>
+                            <p>Status: ${task.status}</p>
+                            <p>Date: ${task.date}</p>
+                        </div>
+                        <div class="actions">
+                            <span class="edit" onclick="editTask(${index})">Edit</span>
+                            <span class="delete" onclick="deleteTask(${index})">Delete</span>
+                        </div>
+                    `;
+                    taskList.appendChild(taskItem);
+                });
+            };
+
+            const saveTasks = () => {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            };
+
+            taskForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const title = document.getElementById('title').value;
+                const description = document.getElementById('description').value;
+                const status = document.getElementById('status').value;
+                const date = getCurrentDate();
+
+                const task = { title, description, status, date };
+                
+                // Save to local tasks
+                tasks.push(task);
+                saveTasks();
+                renderTasks();
+                taskForm.reset();
+
+                // Save to the database
+                fetch('http://localhost:3000/addTask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(task)
+                }).then(response => response.text()).then(data => console.log(data)).catch(error => console.error('Error:', error));
+            });
+
+            window.editTask = (index) => {
+                const task = tasks[index];
+                document.getElementById('title').value = task.title;
+                document.getElementById('description').value = task.description;
+                document.getElementById('status').value = task.status;
+
+                taskForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    tasks[index] = {
+                        title: document.getElementById('title').value,
+                        description: document.getElementById('description').value,
+                        status: document.getElementById('status').value,
+                        date: task.date
+                    };
+                    saveTasks();
+                    renderTasks();
+                    taskForm.reset();
+                    taskForm.onsubmit = defaultTaskFormSubmit;
+                };
+            };
+
+            window.deleteTask = (index) => {
+                tasks.splice(index, 1);
+                saveTasks();
+                renderTasks();
+            };
+
+            const defaultTaskFormSubmit = taskForm.onsubmit;
+            renderTasks();
+        });
+
+    </script>
+</body>
+</html>
